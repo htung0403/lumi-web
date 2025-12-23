@@ -49,6 +49,20 @@ export function MainLayout({ children }: MainLayoutProps) {
     })
     const [isHovered, setIsHovered] = useState(false)
     const location = useLocation()
+    const navigate = useNavigate()
+
+    // Get user from localStorage
+    const userJson = localStorage.getItem("user")
+    const user = userJson ? JSON.parse(userJson) : null
+    const userName = user?.['Họ_và_tên'] || user?.['Họ và tên'] || user?.['Tên'] || "Người dùng"
+    const userRole = user?.['Vị_trí'] || user?.['Vị trí'] || "Thành viên"
+    const userTeam = user?.['Team_Sale_mar'] || user?.['Team'] || ""
+    const userInitials = userName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+
+    const handleLogout = () => {
+        localStorage.removeItem("user")
+        navigate("/login")
+    }
 
     useEffect(() => {
         localStorage.setItem("sidebar-collapsed", JSON.stringify(isCollapsed))
@@ -148,17 +162,19 @@ export function MainLayout({ children }: MainLayoutProps) {
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                                     <Avatar className="h-8 w-8">
-                                        <AvatarImage src="/avatars/01.png" alt="@shadcn" />
-                                        <AvatarFallback>AD</AvatarFallback>
+                                        <AvatarImage src="" alt={userName} />
+                                        <AvatarFallback className="bg-[#2d7c2d]/10 text-[#2d7c2d] text-xs font-bold">
+                                            {userInitials}
+                                        </AvatarFallback>
                                     </Avatar>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-56" align="end" forceMount>
                                 <DropdownMenuLabel className="font-normal">
                                     <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-medium leading-none">Admin</p>
+                                        <p className="text-sm font-medium leading-none">{userName}</p>
                                         <p className="text-xs leading-none text-muted-foreground">
-                                            admin@example.com
+                                            {userRole}{userTeam ? ` - ${userTeam}` : ''}
                                         </p>
                                     </div>
                                 </DropdownMenuLabel>
@@ -172,7 +188,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                                     <span>Cài đặt</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-500 cursor-pointer">
+                                <DropdownMenuItem className="text-red-500 cursor-pointer" onClick={handleLogout}>
                                     <LogOut className="mr-2 h-4 w-4" />
                                     <span>Đăng xuất</span>
                                 </DropdownMenuItem>

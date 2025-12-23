@@ -32,6 +32,13 @@ export function NhapDon() {
         thanhToan: false
     })
 
+    // Get user from localStorage
+    const userJson = localStorage.getItem("user")
+    const user = userJson ? JSON.parse(userJson) : null
+    const userName = user?.['Họ_và_tên'] || user?.['Họ và tên'] || user?.['Tên'] || ""
+    const boPhan = user?.['Bộ_phận'] || user?.['Bộ phận'] || ""
+    const teamSaleMar = user?.['Team_Sale_mar'] || user?.['Team'] || ""
+
     const toggleXacNhan = (key: keyof typeof xacNhan) => {
         setXacNhan(prev => ({ ...prev, [key]: !prev[key] }))
     }
@@ -85,7 +92,7 @@ export function NhapDon() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="nv-mkt">Nhân viên marketing</Label>
-                                    <Input id="nv-mkt" placeholder="Nhập tên nhân viên..." />
+                                    <Input id="nv-mkt" defaultValue={boPhan.includes("MKT") || teamSaleMar.includes("MKT") ? userName : ""} placeholder="Nhập tên nhân viên..." />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="ten-page">Tên page*</Label>
@@ -279,13 +286,19 @@ export function NhapDon() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="space-y-2">
                                         <Label>Nhân viên Sale</Label>
-                                        <Select>
+                                        <Select defaultValue={boPhan.includes("Sale") || teamSaleMar.includes("SALE") ? userName : undefined}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Chọn nhân viên..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="nv1">Nguyễn Văn A</SelectItem>
-                                                <SelectItem value="nv2">Trần Thị B</SelectItem>
+                                                {boPhan.includes("Sale") || teamSaleMar.includes("SALE") ? (
+                                                    <SelectItem value={userName}>{userName}</SelectItem>
+                                                ) : (
+                                                    <>
+                                                        <SelectItem value="nv1">Nguyễn Văn A</SelectItem>
+                                                        <SelectItem value="nv2">Trần Thị B</SelectItem>
+                                                    </>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>

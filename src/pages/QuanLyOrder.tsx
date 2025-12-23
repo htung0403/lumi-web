@@ -230,23 +230,24 @@ export function QuanLyOrder() {
         setLoading(true);
         setError(null);
         try {
-            // 1. Process HR Data
-            const scope = searchParams.get('scope');
-            const userId = searchParams.get('id');
+            // 1. Process Auth Data from localStorage
+            const userJson = localStorage.getItem("user");
+            const currentUser = userJson ? JSON.parse(userJson) : null;
+
             let allowedNames: Set<string> | null = null;
             let emp: HRItem | null = null;
             let boPhan: string | null = null;
 
-            if (scope !== 'allF3' && userId) {
+            if (currentUser) {
                 const hrResponse = await fetchWithRetry(HR_URL);
                 const hrData = Array.isArray(hrResponse) ? hrResponse : Object.values(hrResponse || {}).filter(i => i && typeof i === 'object');
 
+                // Get Email from currentUser object
+                const userEmail = (currentUser['Email'] || currentUser['email'] || '').toString().trim().toLowerCase();
+
                 const foundEmployee = hrData.find((row: any) => {
-                    const candidates = ['id', 'ID', 'Id', 'uid', 'UID', 'Uid', 'Mã nhân sự', 'Mã_Nhân_sự', 'Ma_Nhan_su'];
-                    for (const k of candidates) {
-                        if (row[k] !== undefined && String(row[k]).trim() === userId) return true;
-                    }
-                    return false;
+                    const rowEmail = (row['Email'] || row['email'] || '').toString().trim().toLowerCase();
+                    return rowEmail === userEmail;
                 });
 
                 if (foundEmployee) {
@@ -288,7 +289,7 @@ export function QuanLyOrder() {
                     }
                     allowedNames = set.size ? set : null;
                 } else {
-                    setGreeting(`Không tìm thấy id: ${userId}`);
+                    setGreeting(`Không tìm thấy Email: ${userEmail}`);
                 }
             } else {
                 // Admin mode or no ID
