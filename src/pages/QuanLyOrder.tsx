@@ -26,7 +26,8 @@ import {
     RefreshCcw,
     Download,
     ChevronDown,
-    Check
+    Check,
+    Settings2
 } from "lucide-react"
 import {
     Popover,
@@ -90,6 +91,26 @@ function getRowValue(row: F3Item, ...columnNames: string[]) {
     return '';
 }
 
+const TABLE_COLUMNS = [
+    { id: 'stt', label: 'STT' },
+    { id: 'ma_don', label: 'Mã đơn hàng' },
+    { id: 'tracking', label: 'Mã Tracking' },
+    { id: 'ngay_len_don', label: 'Ngày lên đơn' },
+    { id: 'name', label: 'Name*' },
+    { id: 'sale', label: 'Nhân viên Sale' },
+    { id: 'mkt', label: 'Nhân viên Marketing' },
+    { id: 'van_don', label: 'NV Vận đơn' },
+    { id: 'check', label: 'Kết quả Check' },
+    { id: 'giao_hang', label: 'Trạng thái giao hàng NB' },
+    { id: 'dvvc', label: 'Đơn vị vận chuyển' },
+    { id: 'thu_tien', label: 'Trạng thái thu tiền' },
+    { id: 'mat_hang', label: 'Mặt hàng' },
+    { id: 'khu_vuc', label: 'Khu vực' },
+    { id: 'tong_tien', label: 'Tổng tiền VNĐ' },
+    { id: 'phi_ship', label: 'Phí ship' },
+    { id: 'doi_soat', label: 'Tiền Việt đã đối soát' },
+];
+
 // Helper for Dropdown Select
 // Multi-Select Filter Component
 const MultiSelectFilter = ({
@@ -106,7 +127,7 @@ const MultiSelectFilter = ({
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 text-xs justify-between min-w-[200px]">
+                <Button variant="outline" size="sm" className="h-9 text-xs justify-between min-w-[170px]">
                     <span className="truncate max-w-[150px]">
                         {value.length === 0 ? placeholder : `${placeholder} (${value.length})`}
                     </span>
@@ -218,6 +239,22 @@ export function QuanLyOrder() {
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(100);
+
+    // Column Visibility State
+    const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+        const saved = localStorage.getItem('order-table-columns');
+        return saved ? JSON.parse(saved) : TABLE_COLUMNS.map(c => c.id);
+    });
+
+    useEffect(() => {
+        localStorage.setItem('order-table-columns', JSON.stringify(visibleColumns));
+    }, [visibleColumns]);
+
+    const toggleColumn = (id: string) => {
+        setVisibleColumns(prev =>
+            prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+        );
+    };
 
     // Quick Filter Active State - DateRangePicker handles this internally now
     // const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
@@ -500,32 +537,34 @@ export function QuanLyOrder() {
     const handleExport = () => {
         if (!filteredData.length) return;
 
-        const headers = [
-            'STT', 'Mã đơn hàng', 'Mã Tracking', 'Ngày lên đơn', 'Name*',
-            'Nhân viên Sale', 'Nhân viên Marketing', 'NV Vận đơn', 'Kết quả Check',
-            'Trạng thái giao hàng NB', 'Đơn vị vận chuyển', 'Trạng thái thu tiền',
-            'Mặt hàng', 'Khu vực', 'Tổng tiền VNĐ', 'Phí ship', 'Tiền Việt đã đối soát'
-        ];
+        const activeCols = TABLE_COLUMNS.filter(c => visibleColumns.includes(c.id));
+        const headers = activeCols.map(c => c.label);
 
-        const data = filteredData.map((row, idx) => [
-            idx + 1,
-            getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng'),
-            getRowValue(row, 'Mã_Tracking', 'Mã Tracking'),
-            formatDate(getRowValue(row, 'Ngày_lên_đơn', 'Ngày lên đơn', 'Thời gian lên đơn')),
-            getRowValue(row, 'Name', 'Name*', 'Tên lên đơn'),
-            getRowValue(row, 'Nhân_viên_Sale', 'Nhân viên Sale'),
-            getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing'),
-            getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn'),
-            getRowValue(row, 'Kết_quả_Check', 'Kết quả Check'),
-            getRowValue(row, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng'),
-            getRowValue(row, 'Đơn_vị_vận_chuyển', 'Đơn vị vận chuyển'),
-            getRowValue(row, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền'),
-            getRowValue(row, 'Mặt_hàng', 'Mặt hàng'),
-            getRowValue(row, 'Khu_vực', 'Khu vực'),
-            parseSafeNumber(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ')),
-            parseSafeNumber(getRowValue(row, 'Phí_ship', 'Phí ship')),
-            parseSafeNumber(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))
-        ]);
+        const data = filteredData.map((row, idx) => {
+            const rowData: any[] = [];
+            activeCols.forEach(col => {
+                switch (col.id) {
+                    case 'stt': rowData.push(idx + 1); break;
+                    case 'ma_don': rowData.push(getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng')); break;
+                    case 'tracking': rowData.push(getRowValue(row, 'Mã_Tracking', 'Mã Tracking')); break;
+                    case 'ngay_len_don': rowData.push(formatDate(getRowValue(row, 'Ngày_lên_đơn', 'Ngày lên đơn', 'Thời gian lên đơn'))); break;
+                    case 'name': rowData.push(getRowValue(row, 'Name', 'Name*', 'Tên lên đơn')); break;
+                    case 'sale': rowData.push(getRowValue(row, 'Nhân_viên_Sale', 'Nhân viên Sale')); break;
+                    case 'mkt': rowData.push(getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing')); break;
+                    case 'van_don': rowData.push(getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')); break;
+                    case 'check': rowData.push(getRowValue(row, 'Kết_quả_Check', 'Kết quả Check')); break;
+                    case 'giao_hang': rowData.push(getRowValue(row, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng')); break;
+                    case 'dvvc': rowData.push(getRowValue(row, 'Đơn_vị_vận_chuyển', 'Đơn vị vận chuyển')); break;
+                    case 'thu_tien': rowData.push(getRowValue(row, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền')); break;
+                    case 'mat_hang': rowData.push(getRowValue(row, 'Mặt_hàng', 'Mặt hàng')); break;
+                    case 'khu_vuc': rowData.push(getRowValue(row, 'Khu_vực', 'Khu vực')); break;
+                    case 'tong_tien': rowData.push(parseSafeNumber(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ'))); break;
+                    case 'phi_ship': rowData.push(parseSafeNumber(getRowValue(row, 'Phí_ship', 'Phí ship'))); break;
+                    case 'doi_soat': rowData.push(parseSafeNumber(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))); break;
+                }
+            });
+            return rowData;
+        });
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
         const wb = XLSX.utils.book_new();
@@ -549,11 +588,48 @@ export function QuanLyOrder() {
                             Dữ liệu F3 - Xem toàn bộ
                         </h1>
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" onClick={loadData} disabled={loading}>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-9">
+                                        <Settings2 className="mr-2 h-4 w-4" />
+                                        Ẩn/Hiện cột
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-64 p-2" align="end">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between px-2 py-1 mb-1 border-b">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase">Cấu hình cột</span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 text-[10px] px-2"
+                                                onClick={() => setVisibleColumns(TABLE_COLUMNS.map(c => c.id))}
+                                            >
+                                                Mặc định
+                                            </Button>
+                                        </div>
+                                        <div className="max-h-[300px] overflow-y-auto px-1">
+                                            {TABLE_COLUMNS.map(col => (
+                                                <button
+                                                    key={col.id}
+                                                    onClick={() => toggleColumn(col.id)}
+                                                    className="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded hover:bg-muted transition-colors text-left"
+                                                >
+                                                    <span>{col.label}</span>
+                                                    {visibleColumns.includes(col.id) && (
+                                                        <Check className="w-3 h-3 text-[#2d7c2d]" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            <Button variant="outline" size="sm" className="h-9" onClick={loadData} disabled={loading}>
                                 <RefreshCcw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                                 Làm mới
                             </Button>
-                            <Button className="bg-[#6c757d] hover:bg-[#5a6268]" onClick={handleExport}>
+                            <Button size="sm" className="h-9 bg-[#6c757d] hover:bg-[#5a6268]" onClick={handleExport}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Xuất Excel
                             </Button>
@@ -703,9 +779,9 @@ export function QuanLyOrder() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-[#2d7c2d] hover:bg-[#2d7c2d]">
-                                    {['STT', 'Mã đơn hàng', 'Mã Tracking', 'Ngày lên đơn', 'Name*', 'Nhân viên Sale', 'Nhân viên Marketing', 'NV Vận đơn', 'Kết quả Check', 'Trạng thái giao hàng NB', 'Đơn vị vận chuyển', 'Trạng thái thu tiền', 'Mặt hàng', 'Khu vực', 'Tổng tiền VNĐ', 'Phí ship', 'Tiền Việt đã đối soát'].map((head, i) => (
-                                        <TableHead key={i} className="text-white whitespace-nowrap h-10 py-1 font-bold text-[11px]">
-                                            {head}
+                                    {TABLE_COLUMNS.filter(c => visibleColumns.includes(c.id)).map((head) => (
+                                        <TableHead key={head.id} className="text-white whitespace-nowrap h-10 py-1 font-bold text-[11px]">
+                                            {head.label}
                                         </TableHead>
                                     ))}
                                 </TableRow>
@@ -713,7 +789,7 @@ export function QuanLyOrder() {
                             <TableBody>
                                 {filteredData.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={visibleColumns.length} className="text-center py-8 text-muted-foreground">
                                             Không có dữ liệu.
                                         </TableCell>
                                     </TableRow>
@@ -722,8 +798,8 @@ export function QuanLyOrder() {
                                         const globalIdx = (currentPage - 1) * pageSize + index + 1;
                                         const checkStatus = getRowValue(row, 'Kết_quả_Check', 'Kết quả Check') || '';
                                         let badgeVar: "default" | "secondary" | "destructive" | "outline" = "outline";
-                                        if (checkStatus.toLowerCase().includes('ok')) badgeVar = "default"; // green-ish usually but default is black/primary
-                                        // We might need custom colors for badges to match original
+                                        if (checkStatus.toLowerCase().includes('ok')) badgeVar = "default";
+
                                         const checkStatusLower = checkStatus.toLowerCase();
                                         let badgeClass = "";
                                         if (checkStatusLower.includes('ok')) badgeClass = "bg-[#c8e6c9] text-[#2e7d32] hover:bg-[#c8e6c9] border-none text-[10px] px-1.5 py-0";
@@ -732,25 +808,27 @@ export function QuanLyOrder() {
 
                                         return (
                                             <TableRow key={index} className="hover:bg-[#eff5fb] text-xs">
-                                                <TableCell className="text-center font-medium">{globalIdx}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Mã_Tracking', 'Mã Tracking')}</TableCell>
-                                                <TableCell>{formatDate(getRowValue(row, 'Ngày_lên_đơn', 'Ngày lên đơn', 'Thời gian lên đơn'))}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Name', 'Name*', 'Tên lên đơn')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Nhân_viên_Sale', 'Nhân viên Sale')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')}</TableCell>
-                                                <TableCell>
-                                                    {checkStatus && <Badge variant={badgeVar} className={badgeClass}>{checkStatus}</Badge>}
-                                                </TableCell>
-                                                <TableCell>{getRowValue(row, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Đơn_vị_vận_chuyển', 'Đơn vị vận chuyển')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Mặt_hàng', 'Mặt hàng')}</TableCell>
-                                                <TableCell>{getRowValue(row, 'Khu_vực', 'Khu vực')}</TableCell>
-                                                <TableCell className="text-right font-medium">{formatCurrency(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ'))}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Phí_ship', 'Phí ship'))}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))}</TableCell>
+                                                {visibleColumns.includes('stt') && <TableCell className="text-center font-medium">{globalIdx}</TableCell>}
+                                                {visibleColumns.includes('ma_don') && <TableCell>{getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng')}</TableCell>}
+                                                {visibleColumns.includes('tracking') && <TableCell>{getRowValue(row, 'Mã_Tracking', 'Mã Tracking')}</TableCell>}
+                                                {visibleColumns.includes('ngay_len_don') && <TableCell>{formatDate(getRowValue(row, 'Ngày_lên_đơn', 'Ngày lên đơn', 'Thời gian lên đơn'))}</TableCell>}
+                                                {visibleColumns.includes('name') && <TableCell>{getRowValue(row, 'Name', 'Name*', 'Tên lên đơn')}</TableCell>}
+                                                {visibleColumns.includes('sale') && <TableCell>{getRowValue(row, 'Nhân_viên_Sale', 'Nhân viên Sale')}</TableCell>}
+                                                {visibleColumns.includes('mkt') && <TableCell>{getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing')}</TableCell>}
+                                                {visibleColumns.includes('van_don') && <TableCell>{getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')}</TableCell>}
+                                                {visibleColumns.includes('check') && (
+                                                    <TableCell>
+                                                        {checkStatus && <Badge variant={badgeVar} className={badgeClass}>{checkStatus}</Badge>}
+                                                    </TableCell>
+                                                )}
+                                                {visibleColumns.includes('giao_hang') && <TableCell>{getRowValue(row, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng')}</TableCell>}
+                                                {visibleColumns.includes('dvvc') && <TableCell>{getRowValue(row, 'Đơn_vị_vận_chuyển', 'Đơn vị vận chuyển')}</TableCell>}
+                                                {visibleColumns.includes('thu_tien') && <TableCell>{getRowValue(row, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền')}</TableCell>}
+                                                {visibleColumns.includes('mat_hang') && <TableCell>{getRowValue(row, 'Mặt_hàng', 'Mặt hàng')}</TableCell>}
+                                                {visibleColumns.includes('khu_vuc') && <TableCell>{getRowValue(row, 'Khu_vực', 'Khu vực')}</TableCell>}
+                                                {visibleColumns.includes('tong_tien') && <TableCell className="text-right font-medium">{formatCurrency(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ'))}</TableCell>}
+                                                {visibleColumns.includes('phi_ship') && <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Phí_ship', 'Phí ship'))}</TableCell>}
+                                                {visibleColumns.includes('doi_soat') && <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))}</TableCell>}
                                             </TableRow>
                                         )
                                     })
