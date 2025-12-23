@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Security / Private
+.env
+.env.local
+.env.*.local
+HUONG_DAN_GIAO_DIEN.md
+
