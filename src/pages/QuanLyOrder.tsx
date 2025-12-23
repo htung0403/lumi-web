@@ -50,9 +50,19 @@ const F3_URL = import.meta.env.VITE_F3_URL;
 const HR_URL = import.meta.env.VITE_HR_URL;
 
 // Helpers
+function parseSafeNumber(value: any): number {
+    if (value === undefined || value === null || value === '') return 0;
+    if (typeof value === 'number') return value;
+    // Clean string: remove non-digit characters except for maybe the first dot/comma if we want decimals, 
+    // but for VND we usually don't have decimals in the raw data strings.
+    // If it's something like "1.200.000" or "1,200,000", we should remove all separators.
+    const cleaned = String(value).replace(/[^\d]/g, '');
+    return parseInt(cleaned, 10) || 0;
+}
+
 function formatCurrency(value: any) {
-    if (!value) return '0 ₫';
-    const num = Number(value);
+    const num = parseSafeNumber(value);
+    if (num === 0) return '0 ₫';
     const rounded = Math.round(num / 1000) * 1000;
     return rounded.toLocaleString('vi-VN') + ' ₫';
 }
@@ -239,60 +249,67 @@ export function QuanLyOrder() {
             let boPhan: string | null = null;
 
             if (currentUser) {
-                const hrResponse = await fetchWithRetry(HR_URL);
-                const hrData = Array.isArray(hrResponse) ? hrResponse : Object.values(hrResponse || {}).filter(i => i && typeof i === 'object');
-
-                // Get Email from currentUser object
                 const userEmail = (currentUser['Email'] || currentUser['email'] || '').toString().trim().toLowerCase();
 
-                const foundEmployee = hrData.find((row: any) => {
-                    const rowEmail = (row['Email'] || row['email'] || '').toString().trim().toLowerCase();
-                    return rowEmail === userEmail;
-                });
-
-                if (foundEmployee) {
-                    emp = foundEmployee as HRItem;
-                    const viTri = (emp['Vị_trí'] ?? emp['Vị trí'] ?? emp['Vi_tri'] ?? emp['Position'] ?? '').toString().trim();
-                    const team = (emp['Team'] ?? '').toString().trim();
-                    const hoVaTen = (emp['Họ_và_tên'] ?? emp['Họ Và Tên'] ?? emp['Họ và tên'] ?? emp['Tên'] ?? emp['Name'] ?? '').toString().trim();
-                    const bp = (emp['Bộ_phận'] ?? emp['Bộ phận'] ?? emp['Bo_phan'] ?? '').toString().trim();
-                    const chiNhanh = (emp['chi_nhánh'] ?? emp['chi nhánh'] ?? emp['Chi_nhanh'] ?? '').toString().trim();
-
-                    boPhan = (bp === 'CSKH') ? 'Sale' : bp;
-                    setCurrentEmployee(emp);
-                    setCurrentBoPhan(boPhan);
-                    setGreeting(`Xin chào ${hoVaTen}${bp ? ` - ${bp}` : ''}`);
-
-                    // Authorization Logic
-                    const isSaleLeader = viTri === 'Sale Leader';
-                    const isLeader = /leader/i.test(viTri) && !isSaleLeader;
-
-                    const set = new Set<string>();
-                    if (isSaleLeader && chiNhanh) {
-                        hrData.forEach((e: any) => {
-                            const eCN = (e['chi_nhánh'] ?? e['chi nhánh'] ?? e['Chi_nhanh'] ?? '').toString().trim();
-                            if (eCN.toLowerCase() === chiNhanh.toLowerCase()) {
-                                const name = (e['Họ_và_tên'] ?? e['Họ Và Tên'] ?? e['Tên'] ?? e['Name'] ?? '').toString().trim();
-                                if (name) set.add(name);
-                            }
-                        });
-                    } else if (isLeader) {
-                        hrData.forEach((e: any) => {
-                            const eTeam = (e['Team'] ?? '').toString().trim();
-                            if (eTeam === team && eTeam && eTeam !== 'Đã nghỉ') {
-                                const name = (e['Họ_và_tên'] ?? e['Họ Và Tên'] ?? e['Họ và tên'] ?? e['Tên'] ?? e['Name'] ?? '').toString().trim();
-                                if (name) set.add(name);
-                            }
-                        });
-                    } else {
-                        if (hoVaTen) set.add(hoVaTen);
-                    }
-                    allowedNames = set.size ? set : null;
+                // 1. Process Admin
+                if (userEmail === 'admin@gmail.com') {
+                    setCurrentEmployee(currentUser);
+                    setCurrentBoPhan('Admin');
+                    setGreeting(`Xin chào Admin - Toàn quyền hệ thống`);
+                    setAllowedStaffNames(null);
+                    // Skip HR for hardcoded admin
                 } else {
-                    setGreeting(`Không tìm thấy Email: ${userEmail}`);
+                    const hrResponse = await fetchWithRetry(HR_URL);
+                    const hrData = Array.isArray(hrResponse) ? hrResponse : Object.values(hrResponse || {}).filter(i => i && typeof i === 'object');
+
+                    const foundEmployee = hrData.find((row: any) => {
+                        const rowEmail = (row['Email'] || row['email'] || '').toString().trim().toLowerCase();
+                        return rowEmail === userEmail;
+                    });
+
+                    if (foundEmployee) {
+                        emp = foundEmployee as HRItem;
+                        const viTri = (emp['Vị_trí'] ?? emp['Vị trí'] ?? emp['Vi_tri'] ?? emp['Position'] ?? '').toString().trim();
+                        const team = (emp['Team'] ?? '').toString().trim();
+                        const teamSaleMar = (emp['Team_Sale_mar'] ?? '').toString().trim();
+                        const hoVaTen = (emp['Họ_và_tên'] ?? emp['Họ Và Tên'] ?? emp['Họ và tên'] ?? emp['Tên'] ?? emp['Name'] ?? '').toString().trim();
+                        const bp = (emp['Bộ_phận'] ?? emp['Bộ phận'] ?? emp['Bo_phan'] ?? '').toString().trim();
+                        const chiNhanh = (emp['chi_nhánh'] ?? emp['chi nhánh'] ?? emp['Chi_nhanh'] ?? '').toString().trim();
+
+                        boPhan = (bp === 'CSKH') ? 'Sale' : bp;
+                        setCurrentEmployee(emp);
+                        setCurrentBoPhan(boPhan);
+                        setGreeting(`Xin chào ${hoVaTen}${bp ? ` - ${bp}` : ''}`);
+
+                        // Authorization Logic
+                        const isLeader = /leader/i.test(viTri);
+                        const namesSet = new Set<string>();
+
+                        // Always add themselves
+                        if (hoVaTen) namesSet.add(hoVaTen);
+
+                        if (isLeader) {
+                            hrData.forEach((e: any) => {
+                                const eTeam = (e['Team'] ?? '').toString().trim();
+                                const eTeamSaleMar = (e['Team_Sale_mar'] ?? '').toString().trim();
+                                const eChiNhanh = (e['chi_nhánh'] ?? e['chi nhánh'] ?? e['Chi_nhanh'] ?? '').toString().trim();
+
+                                const matchTeam = (team && eTeam === team) || (teamSaleMar && eTeamSaleMar === teamSaleMar);
+                                const matchChiNhanh = viTri.includes('Sale Leader') && chiNhanh && eChiNhanh.toLowerCase() === chiNhanh.toLowerCase();
+
+                                if (matchTeam || matchChiNhanh) {
+                                    const name = (e['Họ_và_tên'] ?? e['Họ Và Tên'] ?? e['Họ và tên'] ?? e['Tên'] ?? e['Name'] ?? '').toString().trim();
+                                    if (name) namesSet.add(name);
+                                }
+                            });
+                        }
+                        allowedNames = namesSet.size ? namesSet : null;
+                    } else {
+                        setGreeting(`Không tìm thấy Email: ${userEmail}`);
+                    }
                 }
             } else {
-                // Admin mode or no ID
+                // No user (should be handled by ProtectedRoute)
             }
             setAllowedStaffNames(allowedNames);
 
@@ -386,12 +403,12 @@ export function QuanLyOrder() {
                     if ((currentBoPhan === 'Vận Đơn' || currentBoPhan === 'Vận Hành')) return String(getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')).trim() === hoVaTen;
                     return false;
                 });
-            } else if (['Leader', 'Sale Leader'].includes(viTri)) {
+            } else if (/leader/i.test(viTri)) {
                 result = result.filter(row => {
                     let val = '';
                     if (currentBoPhan === 'Sale') val = String(getRowValue(row, 'Nhân_viên_Sale', 'Nhân viên Sale')).trim();
-                    if (currentBoPhan === 'MKT') val = String(getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing')).trim();
-                    if ((currentBoPhan === 'Vận Đơn' || currentBoPhan === 'Vận Hành')) val = String(getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')).trim();
+                    else if (currentBoPhan === 'MKT') val = String(getRowValue(row, 'Nhân_viên_Marketing', 'Nhân viên Marketing')).trim();
+                    else if (['Vận Đơn', 'Vận Hành'].includes(currentBoPhan)) val = String(getRowValue(row, 'NV_Vận_đơn', 'NV Vận đơn')).trim();
                     return val && allowedStaffNames.has(val);
                 });
             }
@@ -471,9 +488,9 @@ export function QuanLyOrder() {
             if (code && !uniqueOrders.has(code)) {
                 uniqueOrders.add(code);
                 count++;
-                totalAmount += Number(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ', 'Tổng_tiền_VND', 'Tổng tiền') || 0);
-                totalShip += Number(getRowValue(row, 'Phí_ship', 'Phí ship') || 0);
-                totalDoiSoat += Number(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát') || 0);
+                totalAmount += parseSafeNumber(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ', 'Tổng_tiền_VND', 'Tổng tiền'));
+                totalShip += parseSafeNumber(getRowValue(row, 'Phí_ship', 'Phí ship'));
+                totalDoiSoat += parseSafeNumber(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'));
             }
         });
         return { count, totalAmount, totalShip, totalDoiSoat };
@@ -505,9 +522,9 @@ export function QuanLyOrder() {
             getRowValue(row, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền'),
             getRowValue(row, 'Mặt_hàng', 'Mặt hàng'),
             getRowValue(row, 'Khu_vực', 'Khu vực'),
-            Number(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ') || 0),
-            Number(getRowValue(row, 'Phí_ship', 'Phí ship') || 0),
-            Number(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát') || 0)
+            parseSafeNumber(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ')),
+            parseSafeNumber(getRowValue(row, 'Phí_ship', 'Phí ship')),
+            parseSafeNumber(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -624,25 +641,25 @@ export function QuanLyOrder() {
                         {/* Dropdowns */}
                         <div className="flex flex-wrap gap-2">
                             <MultiSelectFilter
-                                placeholder="Nhân viên Sale"
+                                placeholder="NV Sale"
                                 value={filterNVSale}
                                 onChange={setFilterNVSale}
                                 options={optionsNVSale}
-                                visible={!currentEmployee || !allowedStaffNames || (currentBoPhan === 'Sale' || !currentBoPhan)}
+                                visible={!currentEmployee || !allowedStaffNames || /leader/i.test(currentEmployee?.['Vị_trí'] || currentEmployee?.['Vị trí'] || '') || (currentBoPhan === 'Sale' || !currentBoPhan)}
                             />
                             <MultiSelectFilter
-                                placeholder="Marketing"
+                                placeholder="NV Marketing"
                                 value={filterNVMarketing}
                                 onChange={setFilterNVMarketing}
                                 options={optionsNVMarketing}
-                                visible={!currentEmployee || !allowedStaffNames || (currentBoPhan === 'MKT' || !currentBoPhan)}
+                                visible={!currentEmployee || !allowedStaffNames || /leader/i.test(currentEmployee?.['Vị_trí'] || currentEmployee?.['Vị trí'] || '') || (currentBoPhan === 'MKT' || !currentBoPhan)}
                             />
                             <MultiSelectFilter
                                 placeholder="NV Vận đơn"
                                 value={filterNVVanDon}
                                 onChange={setFilterNVVanDon}
                                 options={optionsNVVanDon}
-                                visible={!currentEmployee || !allowedStaffNames || (['Vận Đơn', 'Vận Hành'].includes(currentBoPhan || '') || !currentBoPhan)}
+                                visible={!currentEmployee || !allowedStaffNames || /leader/i.test(currentEmployee?.['Vị_trí'] || currentEmployee?.['Vị trí'] || '') || (['Vận Đơn', 'Vận Hành'].includes(currentBoPhan || '') || !currentBoPhan)}
                             />
                             <MultiSelectFilter
                                 placeholder="Kết quả Check"

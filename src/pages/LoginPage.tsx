@@ -25,6 +25,21 @@ export function LoginPage() {
         setError(null)
 
         try {
+            // Check for hardcoded Admin
+            if (email.trim().toLowerCase() === import.meta.env.VITE_ADMIN_MAIL) {
+                const adminUser = {
+                    "Email": import.meta.env.VITE_ADMIN_MAIL,
+                    "Họ_và_tên": "Quản trị viên",
+                    "Vị_trí": "Admin",
+                    "Bộ_phận": "Hệ thống",
+                    "Team": "Admin Team",
+                    "id": "admin"
+                };
+                localStorage.setItem("user", JSON.stringify(adminUser));
+                navigate("/");
+                return;
+            }
+
             const response = await fetch(HR_URL)
             if (!response.ok) throw new Error("Không thể kết nối với máy chủ dữ liệu")
 

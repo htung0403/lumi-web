@@ -35,8 +35,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 
-// ... imports ...
 import { useLocation, useNavigate } from "react-router-dom"
+import { getAppPermissions, getModuleAccess } from "@/lib/auth-utils"
 
 interface MainLayoutProps {
     children: React.ReactNode
@@ -55,9 +55,12 @@ export function MainLayout({ children }: MainLayoutProps) {
     const userJson = localStorage.getItem("user")
     const user = userJson ? JSON.parse(userJson) : null
     const userName = user?.['Họ_và_tên'] || user?.['Họ và tên'] || user?.['Tên'] || "Người dùng"
-    const userRole = user?.['Vị_trí'] || user?.['Vị trí'] || "Thành viên"
-    const userTeam = user?.['Team_Sale_mar'] || user?.['Team'] || ""
     const userInitials = userName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
+    const userRole = (user?.['Vị_trí'] || user?.['Vị trí'] || user?.['Vi_tri'] || "Thành viên").toString()
+    const userTeam = user?.['Team_Sale_mar'] || user?.['Team'] || ""
+
+    // RBAC logic from shared utility
+    const { isAdmin } = getAppPermissions(user);
 
     const handleLogout = () => {
         localStorage.removeItem("user")
@@ -100,36 +103,64 @@ export function MainLayout({ children }: MainLayoutProps) {
                     {/* Navigation */}
                     <nav className="flex-1 py-4 flex flex-col gap-1 px-2 overflow-y-auto scrollbar-hide">
                         <NavItem icon={<LayoutGrid className="w-5 h-5" />} label="Tất cả" isCollapsed={effectiveCollapsed} path="/" active={location.pathname === "/"} />
-                        <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Dashboard báo cáo" isCollapsed={effectiveCollapsed} />
-                        <NavItem icon={<Users className="w-5 h-5" />} label="Quản lý CRM/CSKH" isCollapsed={effectiveCollapsed} />
-                        <NavGroup
-                            icon={<ShoppingCart className="w-5 h-5" />}
-                            label="Quản lý Sale & Order"
-                            isCollapsed={effectiveCollapsed}
-                            active={location.pathname === "/orders" || location.pathname === "/nhap-don"}
-                        >
-                            <NavItem
-                                icon={<List className="w-4 h-4" />}
-                                label="Danh sách đơn"
-                                isCollapsed={effectiveCollapsed}
-                                path="/orders"
-                                active={location.pathname === "/orders"}
-                                isSubItem
-                            />
-                            <NavItem
-                                icon={<PlusCircle className="w-4 h-4" />}
-                                label="Nhập đơn mới"
-                                isCollapsed={effectiveCollapsed}
-                                path="/nhap-don"
-                                active={location.pathname === "/nhap-don"}
-                                isSubItem
-                            />
-                        </NavGroup>
 
-                        <NavItem icon={<Briefcase className="w-5 h-5" />} label="Quản lý nhân sự" isCollapsed={effectiveCollapsed} />
-                        <NavItem icon={<DollarSign className="w-5 h-5" />} label="Quản lý tài chính" isCollapsed={effectiveCollapsed} />
-                        <NavItem icon={<Megaphone className="w-5 h-5" />} label="Quản lý marketing" isCollapsed={effectiveCollapsed} />
-                        <NavItem icon={<Settings className="w-5 h-5" />} label="Cài đặt hệ thống" isCollapsed={effectiveCollapsed} />
+                        {getModuleAccess('dashboard', user) && (
+                            <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Dashboard báo cáo" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {getModuleAccess('goals', user) && (
+                            <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Mục tiêu" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {getModuleAccess('crm', user) && (
+                            <NavItem icon={<Users className="w-5 h-5" />} label="Quản lý CRM/CSKH" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {(getModuleAccess('orders', user) || getModuleAccess('new-order', user)) && (
+                            <NavGroup
+                                icon={<ShoppingCart className="w-5 h-5" />}
+                                label="Quản lý Sale & Order"
+                                isCollapsed={effectiveCollapsed}
+                                active={location.pathname === "/orders" || location.pathname === "/nhap-don"}
+                            >
+                                {getModuleAccess('orders', user) && (
+                                    <NavItem
+                                        icon={<List className="w-4 h-4" />}
+                                        label="Danh sách đơn"
+                                        isCollapsed={effectiveCollapsed}
+                                        path="/orders"
+                                        active={location.pathname === "/orders"}
+                                        isSubItem
+                                    />
+                                )}
+                                {getModuleAccess('new-order', user) && (
+                                    <NavItem
+                                        icon={<PlusCircle className="w-4 h-4" />}
+                                        label="Nhập đơn mới"
+                                        isCollapsed={effectiveCollapsed}
+                                        path="/nhap-don"
+                                        active={location.pathname === "/nhap-don"}
+                                        isSubItem
+                                    />
+                                )}
+                            </NavGroup>
+                        )}
+
+                        {getModuleAccess('hr', user) && (
+                            <NavItem icon={<Briefcase className="w-5 h-5" />} label="Quản lý nhân sự" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {getModuleAccess('finance', user) && (
+                            <NavItem icon={<DollarSign className="w-5 h-5" />} label="Quản lý tài chính" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {getModuleAccess('marketing', user) && (
+                            <NavItem icon={<Megaphone className="w-5 h-5" />} label="Quản lý marketing" isCollapsed={effectiveCollapsed} />
+                        )}
+
+                        {isAdmin && (
+                            <NavItem icon={<Settings className="w-5 h-5" />} label="Cài đặt hệ thống" isCollapsed={effectiveCollapsed} />
+                        )}
                     </nav>
 
                     {/* Collapse Button */}
