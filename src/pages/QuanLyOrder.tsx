@@ -24,8 +24,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
     Search,
     RefreshCcw,
-    Download
+    Download,
+    ChevronDown,
+    Check
 } from "lucide-react"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import * as XLSX from "xlsx"
 
 // Types
@@ -72,6 +80,92 @@ function getRowValue(row: F3Item, ...columnNames: string[]) {
     return '';
 }
 
+// Helper for Dropdown Select
+// Multi-Select Filter Component
+const MultiSelectFilter = ({
+    value, onChange, options, placeholder, visible = true
+}: { value: string[], onChange: (v: string[]) => void, options: string[], placeholder: string, visible?: boolean }) => {
+    const [search, setSearch] = useState("")
+
+    if (!visible) return null;
+
+    const filteredOptions = options.filter(opt =>
+        (opt || 'Trống').toLowerCase().includes(search.toLowerCase())
+    )
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 text-xs justify-between min-w-[200px]">
+                    <span className="truncate max-w-[150px]">
+                        {value.length === 0 ? placeholder : `${placeholder} (${value.length})`}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0" align="start">
+                <div className="p-2 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Tìm kiếm..."
+                            className="h-8 pl-7 text-xs"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <div className="p-2 border-b flex items-center justify-between bg-muted/30">
+                    <span className="text-[10px] font-medium uppercase text-muted-foreground">Đã chọn: {value.length}</span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => onChange([])}
+                    >
+                        Xóa hết
+                    </Button>
+                </div>
+                <div className="max-h-[250px] overflow-y-auto p-1">
+                    {filteredOptions.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-muted-foreground">Không tìm thấy</div>
+                    ) : (
+                        filteredOptions.map(opt => {
+                            const val = opt || '__EMPTY__';
+                            const label = opt || 'Trống';
+                            const isSelected = value.includes(val);
+                            return (
+                                <div
+                                    key={val}
+                                    className={cn(
+                                        "flex items-center gap-2 px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent transition-colors",
+                                        isSelected && "bg-accent/50"
+                                    )}
+                                    onClick={() => {
+                                        if (isSelected) {
+                                            onChange(value.filter(v => v !== val));
+                                        } else {
+                                            onChange([...value, val]);
+                                        }
+                                    }}
+                                >
+                                    <div className={cn(
+                                        "w-4 h-4 border rounded flex items-center justify-center transition-colors shrink-0",
+                                        isSelected ? "bg-[#2d7c2d] border-[#2d7c2d]" : "bg-white border-gray-300"
+                                    )}>
+                                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <span className="truncate text-xs">{label}</span>
+                                </div>
+                            )
+                        })
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
 export function QuanLyOrder() {
     const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(false);
@@ -92,11 +186,14 @@ export function QuanLyOrder() {
     // const [selectedMonth, setSelectedMonth] = useState("all"); // Removed unused
 
     // Dropdown Filter States
-    const [filterNVSale, setFilterNVSale] = useState("all");
-    const [filterNVMarketing, setFilterNVMarketing] = useState("all");
-    const [filterNVVanDon, setFilterNVVanDon] = useState("all");
-    const [filterKetQuaCheck, setFilterKetQuaCheck] = useState("all");
-    const [filterTrangThaiGiaoHang, setFilterTrangThaiGiaoHang] = useState("all");
+    const [filterNVSale, setFilterNVSale] = useState<string[]>([]);
+    const [filterNVMarketing, setFilterNVMarketing] = useState<string[]>([]);
+    const [filterNVVanDon, setFilterNVVanDon] = useState<string[]>([]);
+    const [filterKetQuaCheck, setFilterKetQuaCheck] = useState<string[]>([]);
+    const [filterTrangThaiGiaoHang, setFilterTrangThaiGiaoHang] = useState<string[]>([]);
+    const [filterMatHang, setFilterMatHang] = useState<string[]>([]);
+    const [filterKhuVuc, setFilterKhuVuc] = useState<string[]>([]);
+    const [filterTrangThaiThuTien, setFilterTrangThaiThuTien] = useState<string[]>([]);
 
     // Options for dropdowns (populated dynamically)
     const [optionsNVSale, setOptionsNVSale] = useState<string[]>([]);
@@ -104,6 +201,9 @@ export function QuanLyOrder() {
     const [optionsNVVanDon, setOptionsNVVanDon] = useState<string[]>([]);
     const [optionsKetQuaCheck, setOptionsKetQuaCheck] = useState<string[]>([]);
     const [optionsTrangThaiGiaoHang, setOptionsTrangThaiGiaoHang] = useState<string[]>([]);
+    const [optionsMatHang, setOptionsMatHang] = useState<string[]>([]);
+    const [optionsKhuVuc, setOptionsKhuVuc] = useState<string[]>([]);
+    const [optionsTrangThaiThuTien, setOptionsTrangThaiThuTien] = useState<string[]>([]);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -247,15 +347,18 @@ export function QuanLyOrder() {
         setOptionsNVVanDon(extractOptions(['NV_Vận_đơn', 'NV Vận đơn'], true, 'Vận Đơn'));
         setOptionsKetQuaCheck(extractOptions(['Kết_quả_Check', 'Kết quả Check']));
         setOptionsTrangThaiGiaoHang(extractOptions(['Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng']));
+        setOptionsMatHang(extractOptions(['Mặt_hàng', 'Mặt hàng']));
+        setOptionsKhuVuc(extractOptions(['Khu_vực', 'Khu vực']));
+        setOptionsTrangThaiThuTien(extractOptions(['Trạng_thái_thu_tiền', 'Trạng thái thu tiền']));
 
         // Auto-select if NV
         if (emp && allowedNames && boPhan) {
             const viTri = String(emp['Vị trí'] || '').trim();
             const hoVaTen = String(emp['Họ và tên'] || emp['Họ Và Tên'] || '').trim();
             if ((viTri === 'NV' || viTri === '') && hoVaTen) {
-                if (boPhan === 'Sale') setFilterNVSale(hoVaTen);
-                if (boPhan === 'MKT') setFilterNVMarketing(hoVaTen);
-                if ((boPhan === 'Vận Đơn' || boPhan === 'Vận Hành')) setFilterNVVanDon(hoVaTen);
+                if (boPhan === 'Sale') setFilterNVSale([hoVaTen]);
+                if (boPhan === 'MKT') setFilterNVMarketing([hoVaTen]);
+                if ((boPhan === 'Vận Đơn' || boPhan === 'Vận Hành')) setFilterNVVanDon([hoVaTen]);
             }
         }
     };
@@ -326,30 +429,31 @@ export function QuanLyOrder() {
             });
         }
 
-        // 4. Dropdown Filters
-        const applyDropdown = (val: string, ...fields: string[]) => {
-            if (val && val !== 'all') {
+        // 4. Dropdown Filters (NOW ALL MULTI-SELECT)
+        const applyMultiDropdown = (selected: string[], ...fields: string[]) => {
+            if (selected.length > 0) {
                 result = result.filter(row => {
-                    const v = String(getRowValue(row, ...fields)).trim();
-                    if (val === '__EMPTY__') return v === '';
-                    return v === val;
+                    const v = String(getRowValue(row, ...fields)).trim() || '__EMPTY__';
+                    return selected.includes(v);
                 });
             }
         }
 
-        // Only apply dropdown filter if not already filtered by Auth (for NV)
-        // Leader/Admin can filter freely. NV: dropdown is usually auto-set and disabled or hidden, but logic holds.
-        applyDropdown(filterNVSale, 'Nhân_viên_Sale', 'Nhân viên Sale');
-        applyDropdown(filterNVMarketing, 'Nhân_viên_Marketing', 'Nhân viên Marketing');
-        applyDropdown(filterNVVanDon, 'NV_Vận_đơn', 'NV Vận đơn');
-        applyDropdown(filterKetQuaCheck, 'Kết_quả_Check', 'Kết quả Check');
-        applyDropdown(filterTrangThaiGiaoHang, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng');
+        applyMultiDropdown(filterNVSale, 'Nhân_viên_Sale', 'Nhân viên Sale');
+        applyMultiDropdown(filterNVMarketing, 'Nhân_viên_Marketing', 'Nhân viên Marketing');
+        applyMultiDropdown(filterNVVanDon, 'NV_Vận_đơn', 'NV Vận đơn');
+        applyMultiDropdown(filterKetQuaCheck, 'Kết_quả_Check', 'Kết quả Check');
+        applyMultiDropdown(filterTrangThaiGiaoHang, 'Trạng_thái_giao_hàng', 'Trạng thái giao hàng NB', 'Trạng thái giao hàng');
+        applyMultiDropdown(filterMatHang, 'Mặt_hàng', 'Mặt hàng');
+        applyMultiDropdown(filterKhuVuc, 'Khu_vực', 'Khu vực');
+        applyMultiDropdown(filterTrangThaiThuTien, 'Trạng_thái_thu_tiền', 'Trạng thái thu tiền');
 
         setFilteredData(result);
         setCurrentPage(1); // Reset pagination on filter change
     }, [
         allData, searchTerm, startDate, endDate,
         filterNVSale, filterNVMarketing, filterNVVanDon, filterKetQuaCheck, filterTrangThaiGiaoHang,
+        filterMatHang, filterKhuVuc, filterTrangThaiThuTien,
         currentEmployee, allowedStaffNames, currentBoPhan
     ]);
 
@@ -416,26 +520,6 @@ export function QuanLyOrder() {
     // Pagination Logic
     const totalPages = Math.ceil(filteredData.length / pageSize);
     const pagedData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-    // Helper for Dropdown Select
-    const SelectFilter = ({
-        value, onChange, options, placeholder, visible = true
-    }: { value: string, onChange: (v: string) => void, options: string[], placeholder: string, visible?: boolean }) => {
-        if (!visible) return null;
-        return (
-            <Select value={value} onValueChange={onChange}>
-                <SelectTrigger className="w-[200px] h-9 text-xs">
-                    <SelectValue placeholder={placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">{placeholder}</SelectItem>
-                    {options.map(opt => (
-                        <SelectItem key={opt} value={opt || '__EMPTY__'}>{opt || 'Trống'}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        )
-    }
 
     return (
         <MainLayout>
@@ -538,39 +622,56 @@ export function QuanLyOrder() {
 
                         {/* Dropdowns */}
                         <div className="flex flex-wrap gap-2">
-                            <SelectFilter
-                                placeholder="Tất cả - NV Sale"
+                            <MultiSelectFilter
+                                placeholder="Nhân viên Sale"
                                 value={filterNVSale}
                                 onChange={setFilterNVSale}
                                 options={optionsNVSale}
-                                // Show if not limited or if it matches department (handled by options population but good to keep in mind)
                                 visible={!currentEmployee || !allowedStaffNames || (currentBoPhan === 'Sale' || !currentBoPhan)}
                             />
-                            <SelectFilter
-                                placeholder="Tất cả - Marketing"
+                            <MultiSelectFilter
+                                placeholder="Marketing"
                                 value={filterNVMarketing}
                                 onChange={setFilterNVMarketing}
                                 options={optionsNVMarketing}
                                 visible={!currentEmployee || !allowedStaffNames || (currentBoPhan === 'MKT' || !currentBoPhan)}
                             />
-                            <SelectFilter
-                                placeholder="Tất cả - NV Vận đơn"
+                            <MultiSelectFilter
+                                placeholder="NV Vận đơn"
                                 value={filterNVVanDon}
                                 onChange={setFilterNVVanDon}
                                 options={optionsNVVanDon}
                                 visible={!currentEmployee || !allowedStaffNames || (['Vận Đơn', 'Vận Hành'].includes(currentBoPhan || '') || !currentBoPhan)}
                             />
-                            <SelectFilter
-                                placeholder="Tất cả - Kết quả Check"
+                            <MultiSelectFilter
+                                placeholder="Kết quả Check"
                                 value={filterKetQuaCheck}
                                 onChange={setFilterKetQuaCheck}
                                 options={optionsKetQuaCheck}
                             />
-                            <SelectFilter
-                                placeholder="Tất cả - Trạng thái GH"
+                            <MultiSelectFilter
+                                placeholder="Trạng thái GH"
                                 value={filterTrangThaiGiaoHang}
                                 onChange={setFilterTrangThaiGiaoHang}
                                 options={optionsTrangThaiGiaoHang}
+                            />
+                            <MultiSelectFilter
+                                placeholder="Sản phẩm"
+                                value={filterMatHang}
+                                onChange={setFilterMatHang}
+                                options={optionsMatHang}
+                            />
+                            <MultiSelectFilter
+                                placeholder="Thị trường"
+                                value={filterKhuVuc}
+                                onChange={setFilterKhuVuc}
+                                options={optionsKhuVuc}
+                            />
+                            <MultiSelectFilter
+                                placeholder="Trạng thái thu tiền"
+                                value={filterTrangThaiThuTien}
+                                onChange={setFilterTrangThaiThuTien}
+                                options={optionsTrangThaiThuTien}
                             />
                         </div>
 
