@@ -52,7 +52,55 @@ interface Employee {
     vi_tri: string;
 }
 
-const EMPLOYEES_BASE_URL = "https://lumi-6dff7-default-rtdb.asia-southeast1.firebasedatabase.app/employees";
+const EMPLOYEES_BASE_URL = import.meta.env.VITE_EMPLOYEES_BASE_URL;
+
+const InfoRow = ({
+    icon: Icon,
+    label,
+    value,
+    field,
+    isEdit,
+    formData,
+    setFormData,
+    type = "text"
+}: {
+    icon: any,
+    label: string,
+    value: any,
+    field: keyof Employee,
+    isEdit: boolean,
+    formData: Partial<Employee>,
+    setFormData: (data: Partial<Employee>) => void,
+    type?: string
+}) => {
+    if (isEdit) {
+        return (
+            <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase text-muted-foreground">{label}</Label>
+                <div className="relative">
+                    <Icon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        className="pl-9 h-9 text-sm"
+                        type={type}
+                        value={formData[field] || ""}
+                        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                    />
+                </div>
+            </div>
+        )
+    }
+    return (
+        <div className="flex items-start gap-3 p-3 rounded-lg border bg-slate-50/50 hover:bg-slate-50 transition-colors">
+            <div className="p-2 bg-white rounded-md border shadow-sm">
+                <Icon className="w-4 h-4 text-[#2d7c2d]" />
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground leading-none mb-1">{label}</span>
+                <span className="text-sm font-medium text-slate-700">{value || "---"}</span>
+            </div>
+        </div>
+    );
+};
 
 export function ChiTietNhanSu() {
     const { id } = useParams<{ id: string }>();
@@ -131,35 +179,7 @@ export function ChiTietNhanSu() {
 
     if (!employee) return null;
 
-    const InfoRow = ({ icon: Icon, label, value, field, type = "text" }: { icon: any, label: string, value: any, field: keyof Employee, type?: string }) => {
-        if (isEdit) {
-            return (
-                <div className="space-y-1.5">
-                    <Label className="text-[11px] font-bold uppercase text-muted-foreground">{label}</Label>
-                    <div className="relative">
-                        <Icon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            className="pl-9 h-9 text-sm"
-                            type={type}
-                            value={formData[field] || ""}
-                            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                        />
-                    </div>
-                </div>
-            )
-        }
-        return (
-            <div className="flex items-start gap-3 p-3 rounded-lg border bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                <div className="p-2 bg-white rounded-md border shadow-sm">
-                    <Icon className="w-4 h-4 text-[#2d7c2d]" />
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground leading-none mb-1">{label}</span>
-                    <span className="text-sm font-medium text-slate-700">{value || "---"}</span>
-                </div>
-            </div>
-        );
-    };
+
 
     return (
         <MainLayout>
@@ -258,9 +278,9 @@ export function ChiTietNhanSu() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <InfoRow icon={Briefcase} label="Vị trí" value={employee.vi_tri} field="vi_tri" />
-                                <InfoRow icon={Building2} label="Bộ phận" value={employee.bo_phan} field="bo_phan" />
-                                <InfoRow icon={MapPin} label="Chi nhánh" value={employee.chi_nhanh} field="chi_nhanh" />
+                                <InfoRow icon={Briefcase} label="Vị trí" value={employee.vi_tri} field="vi_tri" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={Building2} label="Bộ phận" value={employee.bo_phan} field="bo_phan" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={MapPin} label="Chi nhánh" value={employee.chi_nhanh} field="chi_nhanh" isEdit={isEdit} formData={formData} setFormData={setFormData} />
                                 {isEdit ? (
                                     <div className="space-y-1.5">
                                         <Label className="text-[11px] font-bold uppercase text-muted-foreground">Trạng thái</Label>
@@ -279,7 +299,7 @@ export function ChiTietNhanSu() {
                                         </Select>
                                     </div>
                                 ) : (
-                                    <InfoRow icon={User} label="Trạng thái" value={employee.trang_thai} field="trang_thai" />
+                                    <InfoRow icon={User} label="Trạng thái" value={employee.trang_thai} field="trang_thai" isEdit={isEdit} formData={formData} setFormData={setFormData} />
                                 )}
                             </CardContent>
                         </Card>
@@ -292,10 +312,10 @@ export function ChiTietNhanSu() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <InfoRow icon={Phone} label="Số điện thoại" value={employee.sđt} field="sđt" />
-                                <InfoRow icon={Mail} label="Email cá nhân" value={employee.email} field="email" type="email" />
-                                <InfoRow icon={MapPin} label="Quê quán" value={employee.que_quan} field="que_quan" />
-                                <InfoRow icon={Heart} label="Hôn nhân" value={employee.tinh_trang_hon_nhan} field="tinh_trang_hon_nhan" />
+                                <InfoRow icon={Phone} label="Số điện thoại" value={employee.sđt} field="sđt" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={Mail} label="Email cá nhân" value={employee.email} field="email" type="email" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={MapPin} label="Quê quán" value={employee.que_quan} field="que_quan" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={Heart} label="Hôn nhân" value={employee.tinh_trang_hon_nhan} field="tinh_trang_hon_nhan" isEdit={isEdit} formData={formData} setFormData={setFormData} />
                             </CardContent>
                         </Card>
 
@@ -307,10 +327,10 @@ export function ChiTietNhanSu() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <InfoRow icon={CreditCard} label="Số CCCD" value={employee.cccd} field="cccd" />
-                                <InfoRow icon={Calendar} label="Ngày cấp" value={employee.ngay_cap} field="ngay_cap" />
+                                <InfoRow icon={CreditCard} label="Số CCCD" value={employee.cccd} field="cccd" isEdit={isEdit} formData={formData} setFormData={setFormData} />
+                                <InfoRow icon={Calendar} label="Ngày cấp" value={employee.ngay_cap} field="ngay_cap" isEdit={isEdit} formData={formData} setFormData={setFormData} />
                                 <div className="sm:col-span-2">
-                                    <InfoRow icon={MapPin} label="Nơi cấp" value={employee.noi_cap} field="noi_cap" />
+                                    <InfoRow icon={MapPin} label="Nơi cấp" value={employee.noi_cap} field="noi_cap" isEdit={isEdit} formData={formData} setFormData={setFormData} />
                                 </div>
                             </CardContent>
                         </Card>

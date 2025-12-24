@@ -17,7 +17,8 @@ import {
     LogOut,
     PlusCircle,
     ChevronDown,
-    List
+    List,
+    Edit
 } from "lucide-react"
 import {
     Collapsible,
@@ -121,7 +122,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                                 icon={<ShoppingCart className="w-5 h-5" />}
                                 label="Quản lý Sale & Order"
                                 isCollapsed={effectiveCollapsed}
-                                active={location.pathname === "/orders" || location.pathname === "/nhap-don"}
+                                active={location.pathname === "/orders" || location.pathname === "/nhap-don" || location.pathname === "/chinh-sua-don" || location.pathname.startsWith("/don-hang/")}
                             >
                                 {getModuleAccess('orders', user) && (
                                     <NavItem
@@ -130,6 +131,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                                         isCollapsed={effectiveCollapsed}
                                         path="/orders"
                                         active={location.pathname === "/orders"}
+                                        isSubItem
+                                    />
+                                )}
+                                {getModuleAccess('orders', user) && (
+                                    <NavItem
+                                        icon={<Edit className="w-4 h-4" />}
+                                        label="Chỉnh sửa đơn"
+                                        isCollapsed={effectiveCollapsed}
+                                        path="/chinh-sua-don"
+                                        active={location.pathname === "/chinh-sua-don"}
                                         isSubItem
                                     />
                                 )}

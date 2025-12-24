@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "sonner"
 import { Menu } from "@/pages/Menu"
 import { QuanLyOrder } from "@/pages/QuanLyOrder"
+import { ChinhSuaDon } from "@/pages/ChinhSuaDon"
+import { ChiTietDon } from "@/pages/ChiTietDon"
 import { NhapDon } from "@/pages/NhapDon"
 import { LoginPage } from "@/pages/LoginPage"
 import { QuanLyNhanSu } from "@/pages/QuanLyNhanSu"
@@ -26,6 +28,8 @@ function App() {
         {/* Protected Routes */}
         <Route path="/" element={<ProtectedRoute><Menu /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute><QuanLyOrder /></ProtectedRoute>} />
+        <Route path="/chinh-sua-don" element={<ProtectedRoute><ChinhSuaDon /></ProtectedRoute>} />
+        <Route path="/don-hang/:id" element={<ProtectedRoute><ChiTietDon /></ProtectedRoute>} />
         <Route path="/nhap-don" element={<ProtectedRoute><NhapDon /></ProtectedRoute>} />
         <Route path="/nhan-su" element={<ProtectedRoute><QuanLyNhanSu /></ProtectedRoute>} />
         <Route path="/nhan-su/:id" element={<ProtectedRoute><ChiTietNhanSu /></ProtectedRoute>} />

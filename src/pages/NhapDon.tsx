@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { MainLayout } from "@/components/layout/MainLayout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,17 @@ import {
     TabsTrigger,
 } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DateInput } from "@/components/ui/date-input"
-import { AlertCircle, CheckCircle2, Save, XCircle } from "lucide-react"
+import { DatePicker } from "@/components/ui/date-picker"
+import { AlertCircle, CheckCircle2, Save, XCircle, RefreshCcw, Search, Check, ChevronDown } from "lucide-react"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+
+const HR_URL = import.meta.env.VITE_HR_URL;
+const PAGE_URL = import.meta.env.VITE_PAGE_URL;
 
 export function NhapDon() {
     const [date, setDate] = useState<Date | undefined>(new Date())
@@ -32,12 +40,142 @@ export function NhapDon() {
         thanhToan: false
     })
 
+    // States for Page data
+    const [pages, setPages] = useState<any[]>([]);
+    const [loadingPages, setLoadingPages] = useState(false);
+    const [selectedPage, setSelectedPage] = useState<string>("");
+    const [pageSearch, setPageSearch] = useState("");
+    const [isPageOpen, setIsPageOpen] = useState(false);
+
+    // States for Sale employees
+    const [saleEmployees, setSaleEmployees] = useState<any[]>([]);
+    const [loadingSale, setLoadingSale] = useState(false);
+    const [selectedSale, setSelectedSale] = useState<string>("");
+    const [saleSearch, setSaleSearch] = useState("");
+    const [isSaleOpen, setIsSaleOpen] = useState(false);
+
+    // States for Marketing employees
+    const [mktEmployees, setMktEmployees] = useState<any[]>([]);
+    const [loadingMkt, setLoadingMkt] = useState(false);
+    const [selectedMkt, setSelectedMkt] = useState<string>("");
+    const [mktSearch, setMktSearch] = useState("");
+    const [isMktOpen, setIsMktOpen] = useState(false);
+
     // Get user from localStorage
     const userJson = localStorage.getItem("user")
     const user = userJson ? JSON.parse(userJson) : null
+    const userEmail = (user?.Email || user?.email || "").toString().toLowerCase().trim();
     const userName = user?.['Họ_và_tên'] || user?.['Họ và tên'] || user?.['Tên'] || ""
     const boPhan = user?.['Bộ_phận'] || user?.['Bộ phận'] || ""
-    const teamSaleMar = user?.['Team_Sale_mar'] || user?.['Team'] || ""
+
+    const loadPageData = async () => {
+        setLoadingPages(true);
+        setLoadingSale(true);
+        setLoadingMkt(true);
+        try {
+            const hrRes = await fetch(HR_URL);
+            const hrData = await hrRes.json();
+            const hrList = Array.isArray(hrData) ? hrData : Object.values(hrData || {}).filter(i => i && typeof i === 'object');
+
+            // 1a. Filter Sale employees immediately from the full list
+            const saleList = hrList.filter((e: any) => {
+                const dep = (e['Bộ_phận'] || e['Bộ phận'] || "").toString().trim().toLowerCase();
+                return dep === 'sale' || dep === 'sales';
+            });
+            setSaleEmployees(saleList);
+
+            // 1b. Filter MKT employees immediately from the full list
+            const mktList = hrList.filter((e: any) => {
+                const dep = (e['Bộ_phận'] || e['Bộ phận'] || "").toString().trim().toLowerCase();
+                return dep === 'mkt' || dep === 'marketing';
+            });
+            setMktEmployees(mktList);
+
+            // Auto-set defaults based on user's department
+            if (boPhan) {
+                const userDep = boPhan.toString().trim().toLowerCase();
+                if ((userDep === 'sale' || userDep === 'sales') && !selectedSale) {
+                    setSelectedSale(userName);
+                }
+                if ((userDep === 'mkt' || userDep === 'marketing') && !selectedMkt) {
+                    setSelectedMkt(userName);
+                }
+            }
+
+            const currentEmp = hrList.find((e: any) =>
+                (e.Email || e.email || "").toString().toLowerCase().trim() === userEmail
+            );
+
+            // 2. Fetch all Pages
+            const pageRes = await fetch(PAGE_URL);
+            const pageData = await pageRes.json();
+            const pageList = Object.values(pageData || {}).filter((p: any) => p && typeof p === 'object') as any[];
+
+            // 3. Determine filtering logic
+            if (userEmail === import.meta.env.VITE_ADMIN_MAIL) {
+                setPages(pageList);
+            } else if (currentEmp) {
+                const viTri = (currentEmp['Vị_trí'] ?? currentEmp['Vị trí'] ?? '').toString().toLowerCase();
+                const hoVaTen = (currentEmp['Họ_và_tên'] ?? currentEmp['Họ và tên'] ?? '').toString().trim();
+                const team = (currentEmp['Team'] ?? '').toString().trim();
+                const teamSM = (currentEmp['Team_Sale_mar'] ?? '').toString().trim();
+
+                const isLeader = viTri.includes('leader');
+                const allowedNames = new Set<string>();
+                allowedNames.add(hoVaTen);
+
+                if (isLeader) {
+                    hrList.forEach((e: any) => {
+                        const eTeam = (e['Team'] ?? '').toString().trim();
+                        const eTeamSM = (e['Team_Sale_mar'] ?? '').toString().trim();
+                        if ((team && eTeam === team) || (teamSM && eTeamSM === teamSM)) {
+                            const eName = (e['Họ_và_tên'] ?? e['Họ và tên'] ?? '').toString().trim();
+                            if (eName) allowedNames.add(eName);
+                        }
+                    });
+                }
+
+                const filtered = pageList.filter(p => {
+                    const mktName = (p['Tên MKT'] || "").toString().trim();
+                    return allowedNames.has(mktName);
+                });
+                setPages(filtered);
+            } else {
+                setPages([]);
+            }
+        } catch (error) {
+            console.error("Lỗi khi tải dữ liệu page/nhân sự:", error);
+        } finally {
+            setLoadingPages(false);
+            setLoadingSale(false);
+            setLoadingMkt(false);
+        }
+    };
+
+    useEffect(() => {
+        loadPageData();
+    }, []);
+
+    const filteredPages = useMemo(() => {
+        if (!pageSearch) return pages;
+        return pages.filter(p =>
+            (p['Tên Page'] || "").toLowerCase().includes(pageSearch.toLowerCase())
+        );
+    }, [pages, pageSearch]);
+
+    const filteredSaleEmployees = useMemo(() => {
+        if (!saleSearch) return saleEmployees;
+        return saleEmployees.filter(e =>
+            (e['Họ_và_tên'] || e['Họ và tên'] || "").toLowerCase().includes(saleSearch.toLowerCase())
+        );
+    }, [saleEmployees, saleSearch]);
+
+    const filteredMktEmployees = useMemo(() => {
+        if (!mktSearch) return mktEmployees;
+        return mktEmployees.filter(e =>
+            (e['Họ_và_tên'] || e['Họ và tên'] || "").toLowerCase().includes(mktSearch.toLowerCase())
+        );
+    }, [mktEmployees, mktSearch]);
 
     const toggleXacNhan = (key: keyof typeof xacNhan) => {
         setXacNhan(prev => ({ ...prev, [key]: !prev[key] }))
@@ -87,31 +225,181 @@ export function NhapDon() {
                             </CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="ngay-len-don">Ngày lên đơn*</Label>
-                                    <DateInput value={date} onChange={setDate} className="w-full text-left" />
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="ngay-len-don">Ngày lên đơn*</Label>
+                                    </div>
+                                    <DatePicker value={date} onChange={setDate} className="w-full text-left" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="nv-mkt">Nhân viên marketing</Label>
-                                    <Input id="nv-mkt" defaultValue={boPhan.includes("MKT") || teamSaleMar.includes("MKT") ? userName : ""} placeholder="Nhập tên nhân viên..." />
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="nv-mkt">Nhân viên marketing</Label>
+                                    </div>
+                                    <Popover open={isMktOpen} onOpenChange={setIsMktOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={isMktOpen}
+                                                className="w-full justify-between h-9 font-normal border-input bg-background hover:bg-background px-3"
+                                                disabled={loadingMkt}
+                                            >
+                                                {selectedMkt ? (
+                                                    <span className="truncate">{selectedMkt}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">{loadingMkt ? "Đang tải..." : "Chọn nhân viên..."}</span>
+                                                )}
+                                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center border-b px-3">
+                                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    <input
+                                                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                                        placeholder="Tìm tên nhân viên..."
+                                                        value={mktSearch}
+                                                        onChange={(e) => setMktSearch(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="max-h-[300px] overflow-y-auto p-1">
+                                                    {filteredMktEmployees.length === 0 ? (
+                                                        <div className="py-6 text-center text-sm text-muted-foreground">
+                                                            Không tìm thấy nhân viên MKT.
+                                                        </div>
+                                                    ) : (
+                                                        filteredMktEmployees.map((e, idx) => {
+                                                            const empName = e['Họ_và_tên'] || e['Họ và tên'] || `NV ${idx}`;
+                                                            const isSelected = selectedMkt === empName;
+                                                            return (
+                                                                <div
+                                                                    key={idx}
+                                                                    className={cn(
+                                                                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                                                                        isSelected && "bg-accent/50 font-medium"
+                                                                    )}
+                                                                    onClick={() => {
+                                                                        setSelectedMkt(empName);
+                                                                        setIsMktOpen(false);
+                                                                        setMktSearch("");
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <Check className="h-3 w-3" />
+                                                                    </div>
+                                                                    <span className="truncate">{empName}</span>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="ten-page">Tên page*</Label>
-                                    <Input id="ten-page" placeholder="Nhập tên trang..." />
+                                    <div className="flex items-center justify-between h-5">
+                                        <Label htmlFor="ten-page">Tên page*</Label>
+                                        <button
+                                            onClick={loadPageData}
+                                            disabled={loadingPages}
+                                            className="text-[10px] text-blue-600 flex items-center gap-1 hover:underline"
+                                        >
+                                            <RefreshCcw className={cn("w-3 h-3", loadingPages && "animate-spin")} />
+                                            Làm mới
+                                        </button>
+                                    </div>
+                                    <Popover open={isPageOpen} onOpenChange={setIsPageOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={isPageOpen}
+                                                className="w-full justify-between h-9 font-normal border-input bg-background hover:bg-background px-3"
+                                                disabled={loadingPages}
+                                            >
+                                                {selectedPage ? (
+                                                    <span className="truncate">{selectedPage}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">{loadingPages ? "Đang tải..." : "Chọn page..."}</span>
+                                                )}
+                                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center border-b px-3">
+                                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    <input
+                                                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                                        placeholder="Tìm kiếm page..."
+                                                        value={pageSearch}
+                                                        onChange={(e) => setPageSearch(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="max-h-[300px] overflow-y-auto p-1">
+                                                    {filteredPages.length === 0 ? (
+                                                        <div className="py-6 text-center text-sm text-muted-foreground">
+                                                            Không tìm thấy page nào.
+                                                        </div>
+                                                    ) : (
+                                                        filteredPages.map((p, idx) => {
+                                                            const pageName = p['Tên Page'] || `Page ${idx}`;
+                                                            const isSelected = selectedPage === pageName;
+                                                            return (
+                                                                <div
+                                                                    key={idx}
+                                                                    className={cn(
+                                                                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                                                                        isSelected && "bg-accent/50 font-medium"
+                                                                    )}
+                                                                    onClick={() => {
+                                                                        setSelectedPage(pageName);
+                                                                        setIsPageOpen(false);
+                                                                        setPageSearch("");
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <Check className="h-3 w-3" />
+                                                                    </div>
+                                                                    <span className="truncate">{pageName}</span>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Phone*</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="phone">Phone*</Label>
+                                    </div>
                                     <Input id="phone" placeholder="Số điện thoại..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="ten-kh">Tên*</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="ten-kh">Tên*</Label>
+                                    </div>
                                     <Input id="ten-kh" placeholder="Họ và tên khách hàng..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="add">Add*</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="add">Add*</Label>
+                                    </div>
                                     <Input id="add" placeholder="Địa chỉ chi tiết..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Khu vực</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label>Khu vực</Label>
+                                    </div>
                                     <Select>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Chọn khu vực..." />
@@ -124,7 +412,9 @@ export function NhapDon() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Loại tiền thanh toán</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label>Loại tiền thanh toán</Label>
+                                    </div>
                                     <Select defaultValue="vnd">
                                         <SelectTrigger>
                                             <SelectValue placeholder="Chọn tiền tệ..." />
@@ -137,19 +427,27 @@ export function NhapDon() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="city">City</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="city">City</Label>
+                                    </div>
                                     <Input id="city" placeholder="Thành phố..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="state">State</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="state">State</Label>
+                                    </div>
                                     <Input id="state" placeholder="Tỉnh/Bang..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="zipcode">Zipcode</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="zipcode">Zipcode</Label>
+                                    </div>
                                     <Input id="zipcode" placeholder="Mã bưu điện..." />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="hinh-thuc">Hình thức thanh toán*</Label>
+                                    <div className="flex items-center h-5">
+                                        <Label htmlFor="hinh-thuc">Hình thức thanh toán*</Label>
+                                    </div>
                                     <Input id="hinh-thuc" placeholder="Ví dụ: Chuyển khoản, COD..." />
                                 </div>
                             </CardContent>
@@ -175,8 +473,25 @@ export function NhapDon() {
                                                     <SelectValue placeholder="Chọn mặt hàng..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="hang-a">Mặt hàng A</SelectItem>
-                                                    <SelectItem value="hang-b">Mặt hàng B</SelectItem>
+                                                    <SelectItem value="bakuchiol-retinol">Bakuchiol Retinol</SelectItem>
+                                                    <SelectItem value="bonavita-coffee">Bonavita Coffee</SelectItem>
+                                                    <SelectItem value="combo-gold-24k">ComboGold24k</SelectItem>
+                                                    <SelectItem value="dg">DG</SelectItem>
+                                                    <SelectItem value="dragon-blood-cream">Dragon Blood Cream</SelectItem>
+                                                    <SelectItem value="dan-kinoki">Dán Kinoki</SelectItem>
+                                                    <SelectItem value="fitgum-cafe-20x">Fitgum CAFE 20X</SelectItem>
+                                                    <SelectItem value="gel-da-day">Gel Dạ Dày</SelectItem>
+                                                    <SelectItem value="gel-tri">Gel Trĩ</SelectItem>
+                                                    <SelectItem value="gel-xk-phi">Gel XK Phi</SelectItem>
+                                                    <SelectItem value="gel-xk-thai">Gel XK Thái</SelectItem>
+                                                    <SelectItem value="gel-xuong-khop">Gel Xương Khớp</SelectItem>
+                                                    <SelectItem value="glutathione-collagen">Glutathione Collagen</SelectItem>
+                                                    <SelectItem value="glutathione-collagen-new">Glutathione Collagen NEW</SelectItem>
+                                                    <SelectItem value="kem-body">Kem Body</SelectItem>
+                                                    <SelectItem value="keo-tao">Kẹo Táo</SelectItem>
+                                                    <SelectItem value="nam-dr-hancy">Nám DR Hancy</SelectItem>
+                                                    <SelectItem value="serum-sam">Serum Sâm</SelectItem>
+                                                    <SelectItem value="sua-tam-cuishifan">Sữa tắm CUISHIFAN</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -285,25 +600,79 @@ export function NhapDon() {
                             <CardContent className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="space-y-2">
-                                        <Label>Nhân viên Sale</Label>
-                                        <Select defaultValue={boPhan.includes("Sale") || teamSaleMar.includes("SALE") ? userName : undefined}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Chọn nhân viên..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {boPhan.includes("Sale") || teamSaleMar.includes("SALE") ? (
-                                                    <SelectItem value={userName}>{userName}</SelectItem>
-                                                ) : (
-                                                    <>
-                                                        <SelectItem value="nv1">Nguyễn Văn A</SelectItem>
-                                                        <SelectItem value="nv2">Trần Thị B</SelectItem>
-                                                    </>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex items-center h-5">
+                                            <Label>Nhân viên Sale</Label>
+                                        </div>
+                                        <Popover open={isSaleOpen} onOpenChange={setIsSaleOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={isSaleOpen}
+                                                    className="w-full justify-between h-9 font-normal border-input bg-background hover:bg-background px-3"
+                                                    disabled={loadingSale}
+                                                >
+                                                    {selectedSale ? (
+                                                        <span className="truncate">{selectedSale}</span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">{loadingSale ? "Đang tải..." : "Chọn nhân viên..."}</span>
+                                                    )}
+                                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center border-b px-3">
+                                                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        <input
+                                                            className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                                            placeholder="Tìm tên nhân viên..."
+                                                            value={saleSearch}
+                                                            onChange={(e) => setSaleSearch(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="max-h-[300px] overflow-y-auto p-1">
+                                                        {filteredSaleEmployees.length === 0 ? (
+                                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                                                Không tìm thấy nhân viên Sale.
+                                                            </div>
+                                                        ) : (
+                                                            filteredSaleEmployees.map((e, idx) => {
+                                                                const empName = e['Họ_và_tên'] || e['Họ và tên'] || `NV ${idx}`;
+                                                                const isSelected = selectedSale === empName;
+                                                                return (
+                                                                    <div
+                                                                        key={idx}
+                                                                        className={cn(
+                                                                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                                                                            isSelected && "bg-accent/50 font-medium"
+                                                                        )}
+                                                                        onClick={() => {
+                                                                            setSelectedSale(empName);
+                                                                            setIsSaleOpen(false);
+                                                                            setSaleSearch("");
+                                                                        }}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                            isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                        )}>
+                                                                            <Check className="h-3 w-3" />
+                                                                        </div>
+                                                                        <span className="truncate">{empName}</span>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Phân loại khách hàng</Label>
+                                        <div className="flex items-center h-5">
+                                            <Label>Phân loại khách hàng</Label>
+                                        </div>
                                         <Select>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Chọn phân loại..." />
@@ -316,7 +685,9 @@ export function NhapDon() {
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Trạng thái đơn</Label>
+                                        <div className="flex items-center h-5">
+                                            <Label>Trạng thái đơn</Label>
+                                        </div>
                                         <div className="flex gap-2">
                                             <Button
                                                 type="button"

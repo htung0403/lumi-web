@@ -65,7 +65,7 @@ interface Employee {
     vi_tri: string;
 }
 
-const EMPLOYEES_URL = "https://lumi-6dff7-default-rtdb.asia-southeast1.firebasedatabase.app/employees.json";
+const EMPLOYEES_URL = import.meta.env.VITE_EMPLOYEES_BASE_URL;
 
 function excelDateToJSDate(serial: number) {
     if (!serial || isNaN(serial)) return null;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { MainLayout } from "@/components/layout/MainLayout"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,9 @@ import {
     Download,
     ChevronDown,
     Check,
-    Settings2
+    Settings2,
+    Edit,
+    Trash2
 } from "lucide-react"
 import {
     Popover,
@@ -112,6 +114,7 @@ const TABLE_COLUMNS = [
     { id: 'tong_tien', label: 'Tổng tiền VNĐ' },
     { id: 'phi_ship', label: 'Phí ship' },
     { id: 'doi_soat', label: 'Tiền Việt đã đối soát' },
+    { id: 'actions', label: 'Thao tác' },
 ];
 
 // Helper for Dropdown Select
@@ -200,8 +203,9 @@ const MultiSelectFilter = ({
     )
 }
 
-export function QuanLyOrder() {
+export function ChinhSuaDon() {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allData, setAllData] = useState<F3Item[]>([]);
@@ -243,14 +247,14 @@ export function QuanLyOrder() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(100);
 
-    // Column Visibility State
+    // Column Visibility State - using different key than QuanLyOrder to include 'actions' by default
     const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
-        const saved = localStorage.getItem('order-table-columns');
+        const saved = localStorage.getItem('edit-order-table-columns');
         return saved ? JSON.parse(saved) : TABLE_COLUMNS.map(c => c.id);
     });
 
     useEffect(() => {
-        localStorage.setItem('order-table-columns', JSON.stringify(visibleColumns));
+        localStorage.setItem('edit-order-table-columns', JSON.stringify(visibleColumns));
     }, [visibleColumns]);
 
     const toggleColumn = (id: string) => {
@@ -544,7 +548,7 @@ export function QuanLyOrder() {
     const handleExport = () => {
         if (!filteredData.length) return;
 
-        const activeCols = TABLE_COLUMNS.filter(c => visibleColumns.includes(c.id));
+        const activeCols = TABLE_COLUMNS.filter(c => visibleColumns.includes(c.id) && c.id !== 'actions');
         const headers = activeCols.map(c => c.label);
 
         const data = filteredData.map((row, idx) => {
@@ -592,7 +596,7 @@ export function QuanLyOrder() {
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <h1 className="text-2xl font-bold tracking-tight text-[#2d7c2d] flex items-center gap-2">
-                            Dữ liệu F3 - Xem toàn bộ
+                            Chỉnh sửa đơn hàng
                         </h1>
                         <div className="flex items-center gap-2">
                             <Popover>
@@ -789,7 +793,13 @@ export function QuanLyOrder() {
                                 <TableHeader>
                                     <TableRow className="bg-[#2d7c2d] hover:bg-[#2d7c2d]">
                                         {TABLE_COLUMNS.filter(c => visibleColumns.includes(c.id)).map((head) => (
-                                            <TableHead key={head.id} className="text-white whitespace-nowrap h-10 py-1 font-bold text-[11px]">
+                                            <TableHead
+                                                key={head.id}
+                                                className={cn(
+                                                    "text-white whitespace-nowrap h-10 py-1 font-bold text-[11px] text-center",
+                                                    head.id === 'actions' && "sticky right-0 bg-[#2d7c2d] z-10 shadow-[-6px_0_12px_rgba(0,0,0,0.15)] border-l-2 border-[#1e5c1e]"
+                                                )}
+                                            >
                                                 {head.label}
                                             </TableHead>
                                         ))}
@@ -816,7 +826,7 @@ export function QuanLyOrder() {
                                             else if (checkStatus) badgeClass = "bg-[#fff9c4] text-[#f57f17] hover:bg-[#fff9c4] border-none text-[10px] px-1.5 py-0";
 
                                             return (
-                                                <TableRow key={index} className="hover:bg-[#eff5fb] text-xs">
+                                                <TableRow key={index} className="hover:bg-[#eff5fb] text-xs group">
                                                     {visibleColumns.includes('stt') && <TableCell className="text-center font-medium">{globalIdx}</TableCell>}
                                                     {visibleColumns.includes('ma_don') && <TableCell>{getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng')}</TableCell>}
                                                     {visibleColumns.includes('tracking') && <TableCell>{getRowValue(row, 'Mã_Tracking', 'Mã Tracking')}</TableCell>}
@@ -838,6 +848,39 @@ export function QuanLyOrder() {
                                                     {visibleColumns.includes('tong_tien') && <TableCell className="text-right font-medium">{formatCurrency(getRowValue(row, 'Tổng_tiền_VNĐ', 'Tổng tiền VNĐ', 'Tổng Tiền VNĐ'))}</TableCell>}
                                                     {visibleColumns.includes('phi_ship') && <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Phí_ship', 'Phí ship'))}</TableCell>}
                                                     {visibleColumns.includes('doi_soat') && <TableCell className="text-right">{formatCurrency(getRowValue(row, 'Tiền_Việt_đã_đối_soát', 'Tiền Việt đã đối soát'))}</TableCell>}
+                                                    {visibleColumns.includes('actions') && (
+                                                        <TableCell className="sticky right-0 bg-[#f8fafc] group-hover:bg-[#f1f5f9] shadow-[-6px_0_12px_rgba(0,0,0,0.08)] border-l-2 border-slate-200 py-1 px-2 z-10">
+                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-100/50 transition-colors border border-transparent hover:border-blue-200"
+                                                                    onClick={() => {
+                                                                        const orderId = getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng');
+                                                                        if (orderId) {
+                                                                            navigate(`/don-hang/${encodeURIComponent(orderId)}`);
+                                                                        }
+                                                                    }}
+                                                                    title="Sửa đơn hàng"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-100/50 transition-colors border border-transparent hover:border-red-200"
+                                                                    onClick={() => {
+                                                                        const orderId = getRowValue(row, 'Mã_đơn_hàng', 'Mã đơn hàng');
+                                                                        console.log('Delete order:', orderId);
+                                                                        // TODO: Confirm and delete
+                                                                    }}
+                                                                    title="Xóa đơn hàng"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             )
                                         })
