@@ -103,14 +103,10 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                     {/* Navigation */}
                     <nav className="flex-1 py-4 flex flex-col gap-1 px-2 overflow-y-auto scrollbar-hide">
-                        <NavItem icon={<LayoutGrid className="w-5 h-5" />} label="Tất cả" isCollapsed={effectiveCollapsed} path="/" active={location.pathname === "/"} />
+                        <NavItem icon={<LayoutGrid className="w-5 h-5" />} label="Menu chức năng" isCollapsed={effectiveCollapsed} path="/" active={location.pathname === "/"} />
 
                         {getModuleAccess('dashboard', user) && (
                             <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Dashboard báo cáo" isCollapsed={effectiveCollapsed} />
-                        )}
-
-                        {getModuleAccess('goals', user) && (
-                            <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Mục tiêu" isCollapsed={effectiveCollapsed} />
                         )}
 
                         {getModuleAccess('crm', user) && (
@@ -191,7 +187,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                 {/* Header */}
                 <header className="h-16 border-b bg-card px-6 flex items-center justify-between sticky top-0 z-10">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-lg font-semibold">Dashboard</h2>
                     </div>
 
                     <div className="flex items-center gap-4">
