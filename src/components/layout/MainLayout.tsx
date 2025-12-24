@@ -147,7 +147,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         )}
 
                         {getModuleAccess('hr', user) && (
-                            <NavItem icon={<Briefcase className="w-5 h-5" />} label="Quản lý nhân sự" isCollapsed={effectiveCollapsed} />
+                            <NavItem icon={<Briefcase className="w-5 h-5" />} label="Quản lý nhân sự" isCollapsed={effectiveCollapsed} path="/nhan-su" active={location.pathname === "/nhan-su"} />
                         )}
 
                         {getModuleAccess('finance', user) && (

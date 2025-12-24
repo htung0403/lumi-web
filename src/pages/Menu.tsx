@@ -64,7 +64,7 @@ export function Menu() {
         { id: 'crm', label: 'Khách hàng (CRM)', icon: <Users className="w-6 h-6" />, color: 'bg-blue-500', path: '#' },
         { id: 'orders', label: 'Danh sách đơn', icon: <List className="w-6 h-6" />, color: 'bg-indigo-500', path: '/orders' },
         { id: 'new-order', label: 'Nhập đơn mới', icon: <PlusCircle className="w-6 h-6" />, color: 'bg-violet-500', path: '/nhap-don' },
-        { id: 'hr', label: 'Nhân viên (HR)', icon: <Briefcase className="w-6 h-6" />, color: 'bg-pink-500', path: '#' },
+        { id: 'hr', label: 'Nhân viên (HR)', icon: <Briefcase className="w-6 h-6" />, color: 'bg-pink-500', path: '/nhan-su' },
         { id: 'finance', label: 'Tài chính', icon: <DollarSign className="w-6 h-6" />, color: 'bg-purple-500', path: '#' },
         { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-6 h-6" />, color: 'bg-rose-500', path: '#' },
         { id: 'settings', label: 'Cài đặt', icon: <Settings className="w-6 h-6" />, color: 'bg-slate-500', path: '#' },
